@@ -8,6 +8,8 @@ Pulls and displays recent/future Florida Gators game data from sports including:
 
 ![](./response.svg)
 
+Go Gators!
+
 ## How to Use
 Simply run `py main.py`
 
