@@ -3,21 +3,36 @@ import requests
 import time
 from datetime import date, timedelta
 
+'''
+Things to add:
+what if week is P?
+'''
+
 baseUrl = 'http://ncaa-api.henrygd.me'
 
 class GameData():
-    def __init__(self, homeTeam: str, homeScore: str, awayTeam: str, awayScore: str, currentStatus: str, other: str = '') -> None:
-        self.update(homeTeam, homeScore, awayTeam, awayScore, currentStatus, other=other)
+    def __init__(self, homeTeam: str, homeScore: str, awayTeam: str, awayScore: str, currentStatus: str, startTime: str, other: str = '') -> None:
+        self.update(homeTeam, homeScore, awayTeam, awayScore, currentStatus, startTime, other=other)
 
-    def update(self, homeTeam: str, homeScore: str, awayTeam: str, awayScore: str, currentStatus: str, other: str = '') -> None:
+    def update(self, homeTeam: str, homeScore: str, awayTeam: str, awayScore: str, currentStatus: str, startTime: str, other: str = '') -> None:
         self.homeTeam = homeTeam
         self.homeScore = homeScore
         self.awayTeam = awayTeam
         self.awayScore = awayScore
         self.currentStatus = currentStatus
+        self.startTime = startTime
         self.other = other
 
         self.filled = True if self.homeTeam != '' else False
+
+def extractSeedOrRank(seed: str, rank: str) -> str:
+    # assumes that seed and rank are the same, just that only one is used at a time
+    if seed != '':
+        return seed
+    elif rank != '':
+        return rank
+    else:
+        return ''
 
 
 def printScoreboard(sport: str, gameList: list[GameData]) -> None:
@@ -28,18 +43,26 @@ def printScoreboard(sport: str, gameList: list[GameData]) -> None:
     currentstatus  other
     '''
     col1Values = [len(sport)]
-    col2Values = []
+    col2Values = [0]
     for game in gameList:
-        col1Values += [len(game.homeTeam), len(game.awayTeam), len(game.currentStatus)]
+        if game.currentStatus == 'UPCOMING':
+            statusString = game.currentStatus + ' ' + game.startTime
+        else:
+            statusString = game.currentStatus
+        col1Values += [len(game.homeTeam), len(game.awayTeam), len(statusString)]
         col2Values += [len(game.homeScore), len(game.awayScore), len(game.other)]
     col1Len = max(col1Values)
     col2Len = max(col2Values) + 2
     print(f'{sport:<{col1Len}}')
     for i in range(len(gameList)):
         game = gameList[i]
-        print(f'{game.homeTeam:<{col1Len}}{game.homeScore:>{col2Len}}')
         print(f'{game.awayTeam:<{col1Len}}{game.awayScore:>{col2Len}}')
-        print(f'{game.currentStatus:<{col1Len}}{game.other:>{col2Len}}')
+        print(f'{game.homeTeam:<{col1Len}}{game.homeScore:>{col2Len}}')
+        if game.currentStatus == 'UPCOMING':
+            statusString = game.currentStatus + ' ' + game.startTime
+        else:
+            statusString = game.currentStatus
+        print(f'{statusString:<{col1Len}}{game.other:>{col2Len}}')
         if i != len(gameList) - 1:
             print()
 
@@ -52,16 +75,21 @@ def processGame(game: dict) -> tuple[GameData, GameData]:
     currentPeriod = game["game"]["currentPeriod"] # current quarter
     contestClock = game["game"]["contestClock"] # minutes left in quarter
     startDate = game["game"]["startDate"] # games start date
+    startTime = game["game"]["startTime"]
     if homeTeam == "Florida" or awayTeam == "Florida":
+        awayRank = extractSeedOrRank(game["game"]["away"]["seed"], game["game"]["away"]["rank"])
+        awayTeam = f'{awayTeam} ({awayRank})' if awayRank != '' else awayTeam
+        homeRank = extractSeedOrRank(game["game"]["home"]["seed"], game["game"]["home"]["rank"])
+        homeTeam = f'{homeTeam} ({homeRank})' if homeRank != '' else homeTeam
         if gameState == 'pre':
-            return GameData('', '', '', '', ''), GameData(homeTeam, homeScore, awayTeam, awayScore, 'Upcoming', startDate)
+            return GameData('', '', '', '', '', ''), GameData(homeTeam, homeScore, awayTeam, awayScore, 'UPCOMING', startTime, startDate)
         elif gameState == 'live':
-            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentPeriod, contestClock), GameData('', '', '', '', '')
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentPeriod, startTime, contestClock), GameData('', '', '', '', '', '')
         else:
             # gameState == 'final'
-            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentPeriod, startDate), GameData('', '', '', '', '')
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentPeriod, startTime, startDate), GameData('', '', '', '', '', '')
     else:
-        return GameData('', '', '', '', ''), GameData('', '', '', '', '')
+        return GameData('', '', '', '', '', ''), GameData('', '', '', '', '', '')
 
 async def getHttp(s: str) -> dict:
     response = requests.get(baseUrl + s)
@@ -81,9 +109,10 @@ async def getHttp(s: str) -> dict:
 async def getGatorsFootballData() -> None:
     currentYear = date.today().year
     # get current week from schedule-alt endpoint
-    j = await getHttp(f'/schedule-alt/football/fbs/{currentYear}') # TODO: get current year
+    j = await getHttp(f'/schedule-alt/football/fbs/{currentYear}')
     if len(j) == 0:
         return
+    # what if week is P?
     week = int(j["data"]["schedules"]["today"]["week"])
     gatorsFound = False
     gameList = []
