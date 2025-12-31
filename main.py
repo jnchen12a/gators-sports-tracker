@@ -6,9 +6,8 @@ import argparse
 
 '''
 Things to add:
-get general football data
+get general basketball data
     return all ranked team games
-    label CFP if valid
 '''
 
 baseUrl = 'http://ncaa-api.henrygd.me'
@@ -232,7 +231,27 @@ async def getGeneralFootballData(post: bool) -> None:
             else:
                 gameList.append(currentGame)
 
-    printScoreboard('Football', gameList)
+    printScoreboard('Football (T25)', gameList)
+    print('-' * 10)
+
+async def getGeneralBasketballData() -> None:
+    # basketball-men d1
+    # get date today
+    d = date.today()
+    gameList = []
+    j = await getHttp(f'/scoreboard/basketball-men/d1/{d.year}/{d.month:02}/{d.day:02}')
+    if len(j) == 0:
+        return
+    games = j['games']
+    for game in games:
+        currentGame = processGameT25(game)
+        if not currentGame.filled:
+            continue
+        else:
+            # found t25 game
+            gameList.append(currentGame)
+    
+    printScoreboard("Men's Basketball (T25)", gameList)
     print('-' * 10)
 
 async def mainGators() -> None:
@@ -249,7 +268,7 @@ async def main(n: argparse.Namespace) -> None:
             if item == 'football':
                 coroutines.append(lambda: getGeneralFootballData(post))
             elif item == 'basketball':
-                pass
+                coroutines.append(getGeneralBasketballData)
             elif item == 'gators':
                 coroutines.append(mainGators)
         
