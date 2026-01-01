@@ -145,12 +145,15 @@ def processGameT25Basketball(game: dict) -> GameData:
         awayTeam = f'{awayTeam} ({awayRank})' if awayRank != '' else awayTeam
         homeTeam = f'{homeTeam} ({homeRank})' if homeRank != '' else homeTeam
         if gameState == 'pre':
-            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'UPCOMING ({bracketRound})', startTime, startDate)
+            currentStatus = 'UPCOMING' if bracketRound == '' else f'UPCOMING ({bracketRound})'
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentStatus, startTime, startDate)
         elif gameState == 'live':
-            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'{currentPeriod} ({bracketRound})', startTime, contestClock)
+            currentStatus = currentPeriod if bracketRound == '' else f'{currentPeriod} ({bracketRound})'
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentStatus, startTime, contestClock)
         else:
             # gameState == 'final'
-            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'{currentPeriod} ({bracketRound})', startTime, startDate)
+            currentStatus = currentPeriod if bracketRound == '' else f'{currentPeriod} ({bracketRound})'
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, currentStatus, startTime, startDate)
     else:
         return GameData('', '', '', '', '', '')
 
@@ -246,21 +249,21 @@ async def getGeneralFootballData(post: bool) -> None:
             continue
         else:
             # found a t25 matchup
-            if post:
-                # only add if it is a playoff game
-                # check if it is a playoff game
-                innerj = await getHttp(f'{game['game']['url']}')
-                if innerj['contests'][0]['championship'] is not None or innerj['contests'][0]['championshipGame'] is not None:
-                    # it is a playoff game
-                    currentGame.currentStatus += ' (CFP)'
-                    gameList.append(currentGame)
-            else:
+            # check if it is a playoff game
+            innerj = await getHttp(f'{game['game']['url']}')
+            if innerj['contests'][0]['championship'] is not None or innerj['contests'][0]['championshipGame'] is not None:
+                # it is a playoff game
+                currentGame.currentStatus += ' (CFP)'
                 gameList.append(currentGame)
+            else:
+                # not a playoff game, check if post is true or false
+                if not post:
+                    gameList.append(currentGame)
 
     printScoreboard('Football (T25)', gameList)
     print('-' * 10)
 
-async def getGeneralBasketballData() -> None:
+async def getGeneralBasketballData(post: bool) -> None:
     # basketball-men d1
     # get date today
     d = date.today() + timedelta(days=2)
@@ -277,8 +280,12 @@ async def getGeneralBasketballData() -> None:
                 continue
             else:
                 # found t25 game
-                gameList.append(currentGame)
-                # TODO: only get march madness games?
+                if post:
+                    # only want postseason (MM) games
+                    if game["game"]["bracketRound"] != '':
+                        gameList.append(currentGame)
+                else:
+                    gameList.append(currentGame)
         d -= timedelta(days=1)
     
     printScoreboard("Men's Basketball (T25)", gameList)
@@ -298,7 +305,7 @@ async def main(n: argparse.Namespace) -> None:
             if item == 'football':
                 coroutines.append(lambda: getGeneralFootballData(post))
             elif item == 'basketball':
-                coroutines.append(getGeneralBasketballData)
+                coroutines.append(lambda: getGeneralBasketballData(post))
             elif item == 'gators':
                 coroutines.append(mainGators)
         
