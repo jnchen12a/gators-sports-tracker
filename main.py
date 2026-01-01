@@ -101,7 +101,7 @@ def checkT25Rank(rank: str) -> bool:
     else:
         return False
 
-def processGameT25(game: dict) -> GameData:
+def processGameT25Football(game: dict) -> GameData:
     awayTeam = game["game"]["away"]["names"]["short"]
     homeTeam = game["game"]["home"]["names"]["short"]
     awayScore = game["game"]["away"]["score"]
@@ -124,6 +124,33 @@ def processGameT25(game: dict) -> GameData:
         else:
             # gameState == 'final'
             return GameData(homeTeam, homeScore, awayTeam, awayScore, currentPeriod, startTime, startDate)
+    else:
+        return GameData('', '', '', '', '', '')
+    
+def processGameT25Basketball(game: dict) -> GameData:
+    awayTeam = game["game"]["away"]["names"]["short"]
+    homeTeam = game["game"]["home"]["names"]["short"]
+    awayScore = game["game"]["away"]["score"]
+    homeScore = game["game"]["home"]["score"]
+    awayRank = extractSeedOrRank(game["game"]["away"]["seed"], game["game"]["away"]["rank"])
+    homeRank = extractSeedOrRank(game["game"]["home"]["seed"], game["game"]["home"]["rank"])
+    gameState = game["game"]["gameState"] # pre, live, final
+    currentPeriod = game["game"]["currentPeriod"] # current quarter
+    contestClock = game["game"]["contestClock"] if currentPeriod != 'HALFTIME' else '' # minutes left in quarter
+    startDate = game["game"]["startDate"] # games start date
+    startTime = game["game"]["startTime"]
+    bracketRound = game["game"]["bracketRound"]
+    if checkT25Rank(awayRank) or checkT25Rank(homeRank) or bracketRound != '':
+        # return a game
+        awayTeam = f'{awayTeam} ({awayRank})' if awayRank != '' else awayTeam
+        homeTeam = f'{homeTeam} ({homeRank})' if homeRank != '' else homeTeam
+        if gameState == 'pre':
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'UPCOMING ({bracketRound})', startTime, startDate)
+        elif gameState == 'live':
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'{currentPeriod} ({bracketRound})', startTime, contestClock)
+        else:
+            # gameState == 'final'
+            return GameData(homeTeam, homeScore, awayTeam, awayScore, f'{currentPeriod} ({bracketRound})', startTime, startDate)
     else:
         return GameData('', '', '', '', '', '')
 
@@ -213,7 +240,7 @@ async def getGeneralFootballData(post: bool) -> None:
         return
     games = j['games']
     for game in games:
-        currentGame = processGameT25(game)
+        currentGame = processGameT25Football(game)
         if not currentGame.filled:
             # not a t25 matchup
             continue
@@ -245,7 +272,7 @@ async def getGeneralBasketballData() -> None:
             return
         games = j['games']
         for game in games:
-            currentGame = processGameT25(game)
+            currentGame = processGameT25Basketball(game)
             if not currentGame.filled:
                 continue
             else:
