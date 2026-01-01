@@ -6,8 +6,7 @@ import argparse
 
 '''
 Things to add:
-get general basketball data
-    return all ranked team games
+
 '''
 
 baseUrl = 'http://ncaa-api.henrygd.me'
@@ -237,19 +236,23 @@ async def getGeneralFootballData(post: bool) -> None:
 async def getGeneralBasketballData() -> None:
     # basketball-men d1
     # get date today
-    d = date.today()
+    d = date.today() + timedelta(days=2)
+    t = date.today()
     gameList = []
-    j = await getHttp(f'/scoreboard/basketball-men/d1/{d.year}/{d.month:02}/{d.day:02}')
-    if len(j) == 0:
-        return
-    games = j['games']
-    for game in games:
-        currentGame = processGameT25(game)
-        if not currentGame.filled:
-            continue
-        else:
-            # found t25 game
-            gameList.append(currentGame)
+    while t <= d:
+        j = await getHttp(f'/scoreboard/basketball-men/d1/{d.year}/{d.month:02}/{d.day:02}')
+        if len(j) == 0:
+            return
+        games = j['games']
+        for game in games:
+            currentGame = processGameT25(game)
+            if not currentGame.filled:
+                continue
+            else:
+                # found t25 game
+                gameList.append(currentGame)
+                # TODO: only get march madness games?
+        d -= timedelta(days=1)
     
     printScoreboard("Men's Basketball (T25)", gameList)
     print('-' * 10)
