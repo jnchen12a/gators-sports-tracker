@@ -34,6 +34,15 @@ def extractSeedOrRank(seed: str, rank: str) -> str:
         return rank
     else:
         return ''
+    
+def getCurrentSeasonYear() -> int:
+    d = date.today()
+    if d.month >= 1 and d.month <= 6:
+        # check if month is between 1-6.
+        # that means it is the next year, but technically the previous year's season
+        return d.year - 1
+    else:
+        return d.year
 
 
 def printScoreboard(sport: str, gameList: list[GameData]) -> None:
@@ -43,6 +52,10 @@ def printScoreboard(sport: str, gameList: list[GameData]) -> None:
     awayteam       score
     currentstatus  other
     '''
+    if len(gameList) == 0:
+        print(sport)
+        print('No results avaliable.')
+        return
     col1Values = [len(sport)]
     col2Values = [0]
     for game in gameList:
@@ -173,7 +186,7 @@ async def getHttp(s: str) -> dict:
         return {}
     
 async def getGatorsFootballData() -> None:
-    currentYear = date.today().year
+    currentYear = getCurrentSeasonYear()
     # get current week from schedule-alt endpoint
     j = await getHttp(f'/schedule-alt/football/fbs/{currentYear}')
     if len(j) == 0:
@@ -231,7 +244,7 @@ async def getGatorsBasketballData() -> None:
     print('-' * 10)
 
 async def getGeneralFootballData(post: bool) -> None:
-    currentYear = date.today().year
+    currentYear = getCurrentSeasonYear()
     # get current week from schedule-alt endpoint
     j = await getHttp(f'/schedule-alt/football/fbs/{currentYear}')
     if len(j) == 0:
